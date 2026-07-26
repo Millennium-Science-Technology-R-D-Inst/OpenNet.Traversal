@@ -5,18 +5,16 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=opennet
-Group=opennet
 EnvironmentFile=/etc/opennet/traversal.env
 
 ExecStart=/usr/local/bin/OpenNet.Traversal \
     --bind 0.0.0.0 \
-    --advertise 103.236.69.23 \
+    --advertise The same as your Server IPv4 address \
     --stun-port 3478 \
     --http-port 48100 \
     --probe-timeout-ms 2500 \
     --max-probes-per-minute 60 \
-    --node-name server-962918187339 \
+    --node-name <your custom name in the server mysql name> \
     --heartbeat-seconds 60
 
 Restart=on-failure
