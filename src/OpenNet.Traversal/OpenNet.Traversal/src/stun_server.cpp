@@ -105,8 +105,11 @@ namespace
 
 namespace opennet
 {
-    stun_server::stun_server(config settings)
-        : settings_{std::move(settings)}
+    stun_server::stun_server(
+        config settings,
+        advertised_addresses_ptr advertised_addresses)
+        : settings_{std::move(settings)},
+          advertised_addresses_{std::move(advertised_addresses)}
     {
     }
 
@@ -121,29 +124,25 @@ namespace opennet
 
         auto add_pair = [this](
                             std::string const& bind_address,
-                            std::string const& advertised_address,
                             bool alternate_address)
         {
             endpoints_.push_back({
                 bind_udp(bind_address, settings_.stun_port),
-                advertised_address,
                 settings_.stun_port,
                 alternate_address,
                 false});
             endpoints_.push_back({
                 bind_udp(bind_address, settings_.alternate_stun_port),
-                advertised_address,
                 settings_.alternate_stun_port,
                 alternate_address,
                 true});
         };
 
-        add_pair(settings_.bind_address, settings_.advertised_address, false);
+        add_pair(settings_.bind_address, false);
         if (!settings_.alternate_bind_address.empty())
         {
             add_pair(
                 settings_.alternate_bind_address,
-                settings_.alternate_advertised_address,
                 true);
         }
 
@@ -255,10 +254,17 @@ namespace opennet
             response.insert(response.end(), request.begin() + 8, request.begin() + 20);
 
             append_address_attribute(response, attr_xor_mapped_address, client, true);
-            sockaddr_in origin = make_address(selected->advertised_address, selected->port);
+            advertised_address_snapshot const advertised = advertised_addresses_->snapshot();
+            std::string const& selected_address = selected->alternate_address
+                ? settings_.alternate_advertised_address
+                : advertised.ipv4;
+            sockaddr_in origin = make_address(selected_address, selected->port);
             append_address_attribute(response, attr_response_origin, origin, false);
+            std::string const& other_advertised_address = other.alternate_address
+                ? settings_.alternate_advertised_address
+                : advertised.ipv4;
             sockaddr_in other_address =
-                make_address(other.advertised_address, other.port);
+                make_address(other_advertised_address, other.port);
             append_address_attribute(response, attr_other_address, other_address, false);
 
             std::size_t attributes_size = response.size() - 20;

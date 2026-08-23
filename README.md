@@ -32,11 +32,45 @@ NAT 映射与过滤行为使用一个临时诊断 UDP socket 测量，不与 lib
 监听 socket 竞争。完整 RFC 5780 过滤测试要求节点主机拥有两个公网 IPv4；
 用 `--alternate-bind` 和 `--alternate-advertise` 配置第二地址。
 
+## 动态 DNS（DDNS）
+
+公网地址会变化的节点可直接配置一个同时由 A/AAAA 记录维护的 DNS-only
+主机名：
+
+```sh
+OpenNet.Traversal \
+  --bind 0.0.0.0 \
+  --advertise-hostname traversal.example.com \
+  --directory-url http://127.0.0.1:5090/api/v1/traversal/servers
+```
+
+程序启动时必须从该主机名解析到一个 IPv4 地址；AAAA 记录是可选的。之后会
+按照 `--heartbeat-seconds` 的周期重新解析：
+
+- A/AAAA 未变化时不更新运行时状态；
+- 地址变化时，Directory 注册和新的 STUN `RESPONSE-ORIGIN` /
+  `OTHER-ADDRESS` 响应立即使用新地址；
+- 首次注册后会复用 Server 返回的节点 ID，因此地址变化会更新同一条数据库
+  记录，而不是在每次变化时创建新节点；
+- DNS 查询整体失败或没有返回 A 记录时保留上一次有效地址；
+- A 记录存在但 AAAA 被删除时，会停止向 Directory 发布 IPv6 地址。
+
+`--advertise-hostname` 不能与 `--advertise` 或 `--advertise-ipv6` 同时使用。
+静态地址部署继续使用原有参数。DDNS 节点应使用 `--bind 0.0.0.0`，这样公网
+IPv4 变化不需要重新绑定 STUN socket；若绑定某个会消失的具体本地地址，地址
+变化后仍然需要重启进程。完整 RFC 5780 所需的第二个 IPv4 仍必须通过
+`--alternate-bind` / `--alternate-advertise` 单独配置，不会从 DNS 返回的
+第二个 A 记录自动推断。
+
+域名必须直接解析到节点公网地址。Cloudflare 等 DNS 服务应使用 DNS only，
+普通 HTTP 代理不能代理 UDP 3478/3479 或此探测协议。
+
 ## 构建
 
 ```sh
 cmake -S src/OpenNet.Traversal -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
+ctest --test-dir build --output-on-failure
 sudo cmake --install build
 ```
 

@@ -1,6 +1,6 @@
-﻿[Unit]
+[Unit]
 Description=OpenNet NAT traversal probe
-After=network-online.target
+After=network-online.target nss-lookup.target
 Wants=network-online.target
 
 [Service]
@@ -9,8 +9,9 @@ EnvironmentFile=/etc/opennet/traversal.env
 
 ExecStart=/usr/local/bin/OpenNet.Traversal \
     --bind 0.0.0.0 \
-    --advertise The same as your Server IPv4 address \
+    --advertise-hostname traversal.example.com \
     --stun-port 3478 \
+    --alternate-stun-port 3479 \
     --http-port 48100 \
     --probe-timeout-ms 2500 \
     --max-probes-per-minute 60 \
